@@ -1,14 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from mpi4py import  MPI
+
+start_time = MPI.Wtime()
 
 eps0 = 8.8541878128e-12  # 真空中的介电常数
 mu0 = 1.256637062e-6  # 真空中的磁导率
 c0 = 1 / np.sqrt(eps0 * mu0)  # 真空中光速
 imp0 = np.sqrt(mu0 / eps0)  # 真空中的特性阻抗
 
-jMax = 500  # 空间离散步数
+jMax = 50000  # 空间离散步数
 jSource = 10  # 源的位置
 nMax = 2000  # 时间步数
+
+# jMax = 500  # 空间离散步数
+# jSource = 10  # 源的位置
+# nMax = 2000  # 时间步数
 
 Ex = np.zeros(jMax)  # 电场分量
 Hz = np.zeros(jMax)  # 磁场分量
@@ -54,7 +61,7 @@ for n in range(nMax):
     Ex[jSource] += sourceFunc(n + 1)
     ExPrev[jSource] = Ex[jSource]
 
-    # plot
+    # plot 连续
     if n % 10 == 0:
         plt.plot(Ex)
         plt.plot(material_prof)
@@ -69,3 +76,26 @@ for n in range(nMax):
         # time.sleep(1)
         if plt.fignum_exists(window_id):
             plt.close()
+end_time = MPI.Wtime()
+print("time:", end_time - start_time)
+
+# for debugger
+# print("Ex", Ex[jMax-100:jMax])
+# print("Ex length:", len(Ex))
+# print("Hz", Hz)
+
+    # # plot 不连续
+    # if n % 10 == 0:
+    #     plt.plot(Ex)
+    #     plt.plot(material_prof)
+    #     plt.ylim([-1, 1])
+    #     # #
+    #     # plt.ioff()
+    #     plt.show()
+    #     # plt.pause(0.3)
+    #     # fig = plt.gcf()
+    #     # window_id = fig.canvas.manager.num
+    #     # window_id = fig.canvas.manager.window.winfo_id()
+    #     # time.sleep(1)
+    #     # if plt.fignum_exists(window_id):
+    #     #     plt.close()
