@@ -8,11 +8,15 @@ mu0 = 1.256637062e-6  # 真空中的磁导率
 c0 = 1 / np.sqrt(eps0 * mu0)  # 真空中光速
 imp0 = np.sqrt(mu0 / eps0)  # 真空中的特性阻抗
 
-jMax = 50000  # 空间离散步数
-jSource = 20  # 源的位置
-nMax = 2000  # 时间步数
+# jMax = 50000  # 空间离散步数
+# jSource = 20  # 源的位置
+# nMax = 2000  # 时间步数
 
-# # for debugger
+jMax = 200*200*100 # 空间离散步数
+jSource = 10  # 源的位置
+nMax = 5  # 时间步数
+
+# # # for debugger
 # jMax = 500  # 空间离散步数
 # jSource = 10  # 源的位置
 # nMax = 2000  # 时间步数
@@ -53,17 +57,14 @@ def sourceFunc(t):
 
 
 for n in range(nMax):
+    t1 = MPI.Wtime()
+
     if rank > 0:
         comm.send(Ex[jMin_local], dest=rank - 1, tag=0)
-
-        # for debugger
-        # print("rank:", rank, " sending Ex[", jMin_local, "]", Ex[jMin_local], "to previous")
-
     if rank < size - 1:
         Ex[jMax_local + 1] = comm.recv(source=rank + 1, tag=0)
 
-        # for debugger
-        # print("rank:", rank, " receiving Ex[", jMax_local + 1, "]", Ex[jMax_local + 1], "from next")
+    comm.barrier()
 
     # Update magnetic field boundaries
     Hz[jMax - 1] = HzPrev[jMax - 2]
@@ -74,11 +75,6 @@ for n in range(nMax):
         Hz[j] = HzPrev[j] + dt / (dx * mu0) * (Ex[j + 1] - Ex[j])
         HzPrev[j] = Hz[j]
 
-    # for debugger
-    # print("updating magnetic ", jMin_local, "to", jMax_local)
-    # print("n:", n, Hz)
-    # print("\n")
-
     # Magnetic field
     # if jMin_local <= jSource - 1 <= jMax_local:
     Hz[jSource - 1] -= sourceFunc(n) / imp0
@@ -86,15 +82,10 @@ for n in range(nMax):
 
     if rank < size - 1:
         comm.send(Hz[jMax_local], dest=rank + 1)
-
-        # for debugger
-        # print("rank:", rank, " sending Hz[", jMax_local, "]", Hz[jMax_local], "to next")
-
     if rank > 0:
         Hz[jMin_local - 1] = comm.recv(source=rank - 1)
 
-        # for debugger
-        # print("rank:", rank, " receiving Hz[", jMin_local - 1, "]", Hz[jMin_local - 1], "from previous")
+    comm.barrier()
 
     # Update electric field boundaries
     Ex[0] = ExPrev[1]
@@ -104,15 +95,14 @@ for n in range(nMax):
             continue
         Ex[j] = ExPrev[j] + dt / (dx * eps[j]) * (Hz[j] - Hz[j - 1])
         ExPrev[j] = Ex[j]
-
     # if jMin_local <= jSource <= jMax_local:
     Ex[jSource] += sourceFunc(n + 1)
     ExPrev[jSource] = Ex[jSource]
 
-    # for debugger
-    # print("updating electric ", jMin_local, "to", jMax_local)
-    # print("n:", n, Ex)
-    # print("\n")
+    # end time in a loop
+    t2 = MPI.Wtime()
+    if rank == 0:
+        print("loop % s costs % s" % (n, t2 - t1))
 
     # # plot
     # if rank != 0:
@@ -140,11 +130,6 @@ for n in range(nMax):
     #         # time.sleep(1)
     #         if plt.fignum_exists(window_id):
     #             plt.close()
-# for debugger
-# if rank == 0:
-#     print("rank:", rank, "Ex", Ex_all[jMax-100:jMax])
-#     print("Ex_all length:", len(Ex_all))
-
 end_time = MPI.Wtime()
 if rank == 0:
     print("time:", end_time - start_time)
